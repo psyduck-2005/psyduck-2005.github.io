@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>堆利用 on Psyduck的秘密小窝</title>
+        <link>https://psyduck-2005.github.io/categories/%E5%A0%86%E5%88%A9%E7%94%A8/</link>
+        <description>Recent content in 堆利用 on Psyduck的秘密小窝</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <copyright>psyduck2005</copyright>
+        <lastBuildDate>Sun, 21 Sep 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://psyduck-2005.github.io/categories/%E5%A0%86%E5%88%A9%E7%94%A8/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>ptmalloc2理解</title>
+        <link>https://psyduck-2005.github.io/p/ptmalloc2/</link>
+        <pubDate>Sun, 21 Sep 2025 00:00:00 +0000</pubDate>
+        
+        <guid>https://psyduck-2005.github.io/p/ptmalloc2/</guid>
+        <description>&lt;img src="https://psyduck-2005.github.io/helena-hertz-wWZzXlDpMog-unsplash.jpg" alt="Featured image of post ptmalloc2理解" /&gt;&lt;h3 id=&#34;unsorted-bins&#34;&gt;Unsorted bins
+&lt;/h3&gt;&lt;h3 id=&#34;fastbins&#34;&gt;Fastbins
+&lt;/h3&gt;&lt;p&gt;链表头部为&amp;rsquo;fastbinY[i]&amp;lsquo;不是一般的&amp;rsquo;bin[i]&amp;rsquo;，共有7个从0x20到0x80每个中包含大小相同的chunk，由单项链表连接，单项链表只有fd指针
+fastbin的fd指针会一直保留，不会作废，在进行内容读取时候可以进行覆写，如double free漏洞，uaf漏洞&lt;/p&gt;
+&lt;h3 id=&#34;small-bins&#34;&gt;Small bins
+&lt;/h3&gt;&lt;h3 id=&#34;large-bins&#34;&gt;Large bins
+&lt;/h3&gt;</description>
+        </item>
+        
+    </channel>
+</rss>
