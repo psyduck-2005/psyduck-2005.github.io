@@ -308,7 +308,7 @@
         <li><a href="#其他保护类型">其他保护类型</a></li>
       </ol>
     </li>
-    <li><a href="#canary绕过">canary绕过</a>
+    <li><a href="#canary检测绕过及利和防护">canary检测绕过及利和防护</a>
       <ol>
         <li><a href="#canary检测">canary检测</a></li>
         <li><a href="#canary绕过方法及其利用">canary绕过方法及其利用</a>
@@ -318,9 +318,9 @@
             <li><a href="#ssp-leak在227及以上版本已经失效">SSP Leak（在2.27及以上版本已经失效）</a></li>
           </ol>
         </li>
-        <li><a href="#防御措施">防御措施</a></li>
       </ol>
     </li>
+    <li><a href="#防御措施">防御措施</a></li>
   </ol>
 </nav>
         </div>
@@ -718,7 +718,7 @@
 </div><h3 id="其他保护类型">其他保护类型
 </h3><p><code>-fstack-protector-strong</code>：这是一个介于 <code>-fstack-protector</code> 和 <code>-fstack-protector-all</code> 之间的选项（GCC 4.9 引入）。它扩展了启发式规则，比 <code>-fstack-protector</code> 保护更多的函数（例如，包含任何类型的数组、有局部变量地址被使用的函数），在不过度增加开销的情况下提供了更好的保护。在许多现代Linux发行版中，这已成为默认的编译选项。</p>
 <p><code>-fno-stack-protector</code>：完全禁用栈保护。</p>
-<h2 id="canary绕过">canary绕过
+<h2 id="canary检测绕过及利和防护">canary检测绕过及利和防护
 </h2><h3 id="canary检测">canary检测
 </h3><div class="highlight"><div class="chroma">
 <table class="lntable"><tr><td class="lntd">
@@ -868,8 +868,8 @@
 </li>
 </ol>
 <h4 id="ssp-leak在227及以上版本已经失效">SSP Leak（在2.27及以上版本已经失效）
-</h4><h3 id="防御措施">防御措施
-</h3><p>现代系统针对这种劫持技术也有相应的防御措施：</p>
+</h4><h2 id="防御措施">防御措施
+</h2><p>现代系统针对这种劫持技术也有相应的防御措施：</p>
 <p>RELRO（Relocations Read-Only）是一种用于增强 Linux 下 ELF 二进制文件安全性的安全加固技术。它的主要目标是保护 ELF 二进制文件中的某些关键数据结构（主要是动态链接相关的部分）在运行时不被恶意修改，从而防止一系列利用漏洞（如全局偏移表GOT覆盖攻击）的攻击手段。
 要理解 RELRO，首先要理解它要解决的安全问题：GOT 覆盖攻击</p>
 <ul>
