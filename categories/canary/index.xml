@@ -373,7 +373,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;n&#34;&gt;io&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;close&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;()&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;这是一个canary自动检测方案（不需要手打printf，来自B站某up）&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;这是一个canary自动检测方案（不需要手打%p，来自B站某up）&lt;/p&gt;
 &lt;h3 id=&#34;canary绕过方法及其利用&#34;&gt;canary绕过方法及其利用
 &lt;/h3&gt;&lt;h4 id=&#34;泄露&#34;&gt;泄露
 &lt;/h4&gt;&lt;ol&gt;
