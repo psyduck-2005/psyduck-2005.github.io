@@ -374,7 +374,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;这是一个canary自动检测方案（不需要手打printf，来自B站某up）&lt;/p&gt;
-&lt;h3 id=&#34;canary绕过方法&#34;&gt;canary绕过方法
+&lt;h3 id=&#34;canary绕过方法及其利用&#34;&gt;canary绕过方法及其利用
 &lt;/h3&gt;&lt;h4 id=&#34;泄露&#34;&gt;泄露
 &lt;/h4&gt;&lt;ol&gt;
 &lt;li&gt;
@@ -383,6 +383,7 @@
 &lt;li&gt;定位Canary：首先需要确定Canary在栈上的偏移位置。在格式化字符串漏洞中，我们可以使用类似 %p %p %p %p &amp;hellip; 或 %n$p（n是位置参数）的方式来“窥探”栈上的内容。&lt;/li&gt;
 &lt;li&gt;识别Canary：Canary的值通常以字节 0x00 结尾（这是为了阻止使用字符串操作函数如 strcpy 来泄露它，因为 strcpy 遇到 0x00 会终止）。所以当我们从栈上泄露出一串地址，其中一个值最后两个字节是 00（例如 0x1b2d3c4d5a6b00），它极有可能就是Canary。&lt;/li&gt;
 &lt;li&gt;构造Payload：在后续的溢出中，在覆盖到Canary的位置时，精确地用我们泄露出来的这个值填充，这样函数尾声的校验就会通过，程序不会崩溃，攻击得以继续。&lt;/li&gt;
+&lt;li&gt;在这之中包括另外一种泄露:Canry的最底一个字节设计为b’\x00’，是为了防止put，write，printf登将canary读出。如果利用栈溢出将最低位的b’\x00’覆盖，就可以利用答应函数将canary一致输出，最后再在最低位拼接上 b&amp;rsquo;\x00&amp;rsquo;就可以得到canary。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;
@@ -393,9 +394,7 @@
 &lt;p&gt;进程内存镜像复制（Fork）：fork() 创建的子进程会完整地复制父进程的内存空间。这意味着每个连接对应的子进程，其Canary值是完全相同的。&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
-&lt;p&gt;逐字节爆破：Canary通常是一个4字节（32位）或8字节（64位）的值，但其最后一个字节固定为 0x00。所以我们只需要爆破前面的3或7个字节。
-攻击者可以多次连接服务，每次尝试爆破Canary的一个字节。从最低位字节（LSB）开始（注意小端序，内存中第一个字节是最低位）。
-例如，对于一个64位Canary 0x00 0xab 0xcd 0xef 0x12 0x34 0x56 0x78，爆破顺序是从 0x78 开始，然后是 0x56，依此类推，直到 0xab（0x00 不用爆，直接填）。利用崩溃反馈：攻击者发送一个精心构造的payload：[填充缓冲区的垃圾数据] + [已猜解的部分Canary] + [尝试爆破的下一个字节]。如果这个字节猜对了，Canary校验通过，程序不会崩溃，可能会因为后续的返回地址错误而表现出其他行为（比如连接意外断开或无响应）。如果猜错了，__stack_chk_fail 会被触发，子进程立刻崩溃。攻击者通过观察连接是否“立即断开”（崩溃）来判断字节是否猜对。重复过程：从一个字节开始，逐步猜出整个Canary。因为每次猜一个字节（256种可能性），所以最多只需要 7 * 256 = 1792 次尝试，这在计算上是完全可行的。&lt;/p&gt;
+&lt;p&gt;逐字节爆破：Canary通常是一个4字节（32位）或8字节（64位）的值，但其最后一个字节固定为 0x00。所以我们只需要爆破前面的3或7个字节。攻击者可以多次连接服务，每次尝试爆破Canary的一个字节。从最低位字节（LSB）开始（注意小端序，内存中第一个字节是最低位）。利用栈溢出，溢出到canary位置，从低位到高位 逐次覆盖掉canary的4个字节(一位无法绕过低位字节堆高位进行爆破，所以必须从低到高)，且要求canary不能变化，绕过重开程序canary变化，就不适用爆破了。例如，对于一个64位Canary 0x00 0xab 0xcd 0xef 0x12 0x34 0x56 0x78，爆破顺序是从 0x78 开始，然后是 0x56，依此类推，直到 0xab（0x00 不用爆，直接填）。利用崩溃反馈：攻击者发送一个精心构造的payload：[填充缓冲区的垃圾数据] + [已猜解的部分Canary] + [尝试爆破的下一个字节]。如果这个字节猜对了，Canary校验通过，程序不会崩溃，可能会因为后续的返回地址错误而表现出其他行为（比如连接意外断开或无响应）。如果猜错了，__stack_chk_fail 会被触发，子进程立刻崩溃。攻击者通过观察连接是否“立即断开”（崩溃）来判断字节是否猜对。重复过程：从一个字节开始，逐步猜出整个Canary。因为每次猜一个字节（256种可能性），所以最多只需要 7 * 256 = 1792 次尝试，这在计算上是完全可行的。&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;基于每次连接fork出的新进程，其Canary都和上一次一样。上次猜对的字节，这次依然有效，所以可以基于已知字节继续猜下一个。&lt;/p&gt;
@@ -422,38 +421,80 @@
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
-&lt;h4 id=&#34;stack-smashing-223&#34;&gt;Stack smashing (2.23)
-&lt;/h4&gt;&lt;p&gt;在这个版本下缺少某些保护（如full relro）但是拥有aslr，nx，canary等常规保护&lt;/p&gt;
 &lt;h4 id=&#34;劫持_stack_chk_fail&#34;&gt;劫持_stack_chk_fail
 &lt;/h4&gt;&lt;ol&gt;
-&lt;li&gt;函数行为
-检测到栈溢出：如果攻击者通过栈溢出（例如，缓冲区溢出）覆盖了函数的返回地址，那么很可能会同时覆盖这个金丝雀值。函数在返回前检查发现金丝雀值不匹配，就会调用 __stack_chk_fail 函数。&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;函数行为&lt;/p&gt;
+&lt;p&gt;检测到栈溢出：如果攻击者通过栈溢出（例如，缓冲区溢出）覆盖了函数的返回地址，那么很可能会同时覆盖这个金丝雀值。函数在返回前检查发现金丝雀值不匹配，就会调用 &lt;code&gt;__stack_chk_fail&lt;/code&gt; 函数。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;行为：&lt;code&gt;__stack_chk_fail&lt;/code&gt; 的默认实现是打印一条错误信息（如 &amp;ldquo;** stack smashing detected **&amp;quot;）并立即终止程序（通常通过 abort()）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;劫持 &lt;code&gt;__stack_chk_fail&lt;/code&gt;目的&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;获取程序控制流：在栈溢出攻击中，攻击者可能无法精确地控制金丝雀值。如果触发了栈保护，程序会崩溃，攻击失败。通过劫持&lt;code&gt;__stack_chk_fail&lt;/code&gt;，攻击者可以将崩溃转化为机会：不让程序简单地退出，而是让它跳转到攻击者控制的代码（Shellcode）。&lt;/li&gt;
+&lt;li&gt;信息泄露：在某些高级攻击中（如通过覆盖局部变量实现的部分写），可能故意触发 &lt;code&gt;__stack_chk_fail&lt;/code&gt; 来泄露内存信息或其他数据。&lt;/li&gt;
+&lt;li&gt;绕过保护：这是最直接的动机。通过控制 &lt;code&gt;__stack_chk_fail&lt;/code&gt; 的行为，攻击者实质上禁用或绕过了栈保护机制，使得传统的栈溢出攻击得以继续。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;劫持 &lt;code&gt;__stack_chk_fail&lt;/code&gt;方法&lt;/p&gt;
+&lt;p&gt;覆盖程序运行时使用的 &lt;code&gt;__stack_chk_fail&lt;/code&gt; 函数的地址。主要有以下几种方法：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;修改 GOT 表（全局偏移表）这通常是 基于二进制漏洞利用 的首选方法，因为它不需要源代码。
+在 Linux 等使用 ELF 格式的系统中，共享库函数（如&lt;code&gt;__stack_chk_fail&lt;/code&gt;，它位于 libc 中）的地址存储在名为 GOT 的数据段中。程序在调用 &lt;code&gt;__stack_chk_fail&lt;/code&gt; 时，实际上是通过 GOT 表进行间接跳转。使用 objdump -R ./binary 或 readelf -r ./binary 命令查找&lt;code&gt;__stack_chk_fail&lt;/code&gt; 在 GOT 中的地址。你会看到一条记录，显示 &lt;code&gt;__stack_chk_fail@got.plt&lt;/code&gt; 的地址（例如 0x804a00c）。
+找到你的 Shellcode 在内存中的地址（例如 0xffffd100）。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;利用漏洞：通过栈溢出或其他内存破坏漏洞（如格式化字符串漏洞），将 GOT 表中 &lt;code&gt;__stack_chk_fail&lt;/code&gt; 的条目覆盖为你想要的地址（例如你的 Shellcode 地址）。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;触发检查：故意造成一个栈溢出，触发栈保护检查。程序会照常去调用 &lt;code&gt;__stack_chk_fail&lt;/code&gt;，但由于 GOT 表被修改，它实际上会跳转到你的 Shellcode 地址，从而执行你的代码。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;行为：__stack_chk_fail 的默认实现是打印一条错误信息（如 &amp;ldquo;** stack smashing detected **&amp;quot;）并立即终止程序（通常通过 abort()）。&lt;/p&gt;
-&lt;ol start=&#34;2&#34;&gt;
-&lt;li&gt;劫持 __stack_chk_fail目的&lt;/li&gt;
+&lt;h4 id=&#34;ssp-leak在227及以上版本已经失效&#34;&gt;SSP Leak（在2.27及以上版本已经失效）
+&lt;/h4&gt;&lt;h3 id=&#34;防御措施&#34;&gt;防御措施
+&lt;/h3&gt;&lt;p&gt;现代系统针对这种劫持技术也有相应的防御措施：&lt;/p&gt;
+&lt;p&gt;RELRO（Relocations Read-Only）是一种用于增强 Linux 下 ELF 二进制文件安全性的安全加固技术。它的主要目标是保护 ELF 二进制文件中的某些关键数据结构（主要是动态链接相关的部分）在运行时不被恶意修改，从而防止一系列利用漏洞（如全局偏移表GOT覆盖攻击）的攻击手段。
+要理解 RELRO，首先要理解它要解决的安全问题：GOT 覆盖攻击&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;动态链接：Linux 上的程序为了节省内存，通常会动态链接到像 libc 这样的共享库。这意味着程序在运行时才知道这些库函数的实际内存地址。
+全局偏移表（GOT）：为了实现动态链接，编译器会创建一个叫做 GOT 的数据结构。它可以被理解为一个“函数地址查询表”。当程序第一次调用一个共享库函数（如 printf）时，动态链接器会找到 printf 的真实地址，并将其写入到 GOT 中对应的条目。之后每次调用 printf，程序就直接从 GOT 中读取地址并跳转过去。
+安全问题：GOT 表是可写的。这是一个致命的安全隐患。如果攻击者通过一个漏洞（如栈缓冲区溢出或格式化字符串漏洞）能够向任意内存地址写入数据，他们就可以：
+找到要攻击的函数的 GOT 表地址（例如 system 或 __stack_chk_fail 的 GOT 条目）。这个条目覆盖为他们想要的地址（例如 /bin/sh 的地址，或者他们自己的 Shellcode 地址）。当下一次程序调用这个被劫持的函数时，控制流就会跳转到攻击者指定的地址，从而完成攻击。RELRO 就是为了解决这个“GOT 表可写”的问题而诞生的。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;RELRO 有两种级别，提供不同强度的保护：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;部分 RELRO（Partial RELRO） -Wl,-z,relro
+这是 GCC 的默认编译选项（除非你用 -Wl,-z,norelro 显式关闭）。
+&lt;ul&gt;
+&lt;li&gt;重排序段：它让链接器重新排列 ELF 文件中的各个数据段（section），将 ELF 内部的数据段（如 .got, .dtors, .ctors 等）放在程序的数据段（如 .data 和 .bss）之前。这可以防止一些基于全局变量溢出的攻击，因为溢出会向后覆盖，而关键数据段在前面，不会被覆盖到。&lt;/li&gt;
+&lt;li&gt;标记只读：它将 GOT 表 之前的 .got.plt 部分（包含过程链接表PLT使用的GOT条目）标记为只读。但注意，完整的 GOT 表（.got）仍然是可写的，因为延迟绑定（lazy binding）机制需要写入它。&lt;/li&gt;
+&lt;li&gt;安全性：部分 RELRO 无法防止针对 GOT 表的覆盖攻击，因为 .got 仍然可写。它主要缓解的是其他一些不那么常见的攻击向量。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;完全 RELRO（Full RELRO） -Wl,-z,relro,-z,now这是更严格、更安全的模式。
+&lt;ul&gt;
+&lt;li&gt;它包含了部分 RELRO 的所有保护措施。它禁用了延迟绑定（lazy binding）。程序在启动阶段，由动态链接器 (ld-linux.so) 一次性解析并填充所有外部函数的真实地址到 GOT 表中。&lt;/li&gt;
+&lt;li&gt;在完成所有符号解析后，将整个 GOT 表（包括 .got 和 .got.plt）标记为只读。&lt;/li&gt;
+&lt;li&gt;安全性：完全 RELRO 可以有效防止 GOT 覆盖攻击。因为攻击者再也无法向 GOT 表写入任何数据。&lt;/li&gt;
+&lt;li&gt;启动时间变长：因为所有动态链接符号都在程序开始时解析，而不是在第一次调用时解析，这导致程序的启动时间稍微增加。对于依赖大量共享库的大型程序（如 Firefox,LibreOffice），这个影响可能更明显。&lt;/li&gt;
+&lt;li&gt;内存占用：所有符号都被立即解析，可能会稍微增加初始内存占用。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;获取程序控制流：在栈溢出攻击中，攻击者可能无法精确地控制金丝雀值。如果触发了栈保护，程序会崩溃，攻击失败。通过劫持 __stack_chk_fail，攻击者可以将崩溃转化为机会：不让程序简单地退出，而是让它跳转到攻击者控制的代码（Shellcode）。&lt;/p&gt;
-&lt;p&gt;信息泄露：在某些高级攻击中（如通过覆盖局部变量实现的部分写），可能故意触发 __stack_chk_fail 来泄露内存信息或其他数据。&lt;/p&gt;
-&lt;p&gt;绕过保护：这是最直接的动机。通过控制 __stack_chk_fail 的行为，攻击者实质上禁用或绕过了栈保护机制，使得传统的栈溢出攻击得以继续。&lt;/p&gt;
-&lt;ol start=&#34;3&#34;&gt;
-&lt;li&gt;劫持 __stack_chk_fail方法
-覆盖程序运行时使用的 __stack_chk_fail 函数的地址。主要有以下几种方法：
-修改 GOT 表（全局偏移表） - 最常见的方法
-这通常是 基于二进制漏洞利用 的首选方法，因为它不需要源代码。
-原理：在 Linux 等使用 ELF 格式的系统中，共享库函数（如 __stack_chk_fail，它位于 libc 中）的地址存储在名为 GOT 的数据段中。程序在调用 __stack_chk_fail 时，实际上是通过 GOT 表进行间接跳转。&lt;/li&gt;
-&lt;/ol&gt;
-&lt;p&gt;使用 objdump -R ./binary 或 readelf -r ./binary 命令查找 __stack_chk_fail 在 GOT 中的地址。你会看到一条记录，显示 __&lt;a class=&#34;link&#34; href=&#34;mailto:stack_chk_fail@got.plt&#34; &gt;stack_chk_fail@got.plt&lt;/a&gt; 的地址（例如 0x804a00c）。&lt;/p&gt;
-&lt;p&gt;找到你的 Shellcode 在内存中的地址（例如 0xffffd100）。&lt;/p&gt;
-&lt;p&gt;利用漏洞：通过栈溢出或其他内存破坏漏洞（如格式化字符串漏洞），将 GOT 表中 __stack_chk_fail 的条目覆盖为你想要的地址（例如你的 Shellcode 地址）。&lt;/p&gt;
-&lt;p&gt;触发检查：故意造成一个栈溢出，触发栈保护检查。程序会照常去调用 __stack_chk_fail，但由于 GOT 表被修改，它实际上会跳转到你的 Shellcode 地址，从而执行你的代码。&lt;/p&gt;
-&lt;ol start=&#34;4&#34;&gt;
-&lt;li&gt;防御措施
-现代系统针对这种劫持技术也有相应的防御措施：
-RELRO（Relocations Read-Only）是一种用于增强 Linux 下 ELF 二进制文件安全性的安全加固技术。它的主要目标是保护 ELF 二进制文件中的某些关键数据结构（主要是动态链接相关的部分）在运行时不被恶意修改，从而防止一系列利用漏洞（如全局偏移表GOT覆盖攻击）的攻击手段。&lt;/li&gt;
-&lt;/ol&gt;
-&lt;p&gt;一篇论文
-&lt;a class=&#34;link&#34; href=&#34;https://seclists.org/oss-sec/2018/q1/195&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;一篇关于ASLR的论文&lt;/p&gt;
+&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://seclists.org/oss-sec/2018/q1/195&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;Linux 上 ASLR 的新旁路和保护技术&lt;/a&gt;&lt;/p&gt;
 &lt;div class=&#34;footnotes&#34; role=&#34;doc-endnotes&#34;&gt;
 &lt;hr&gt;
